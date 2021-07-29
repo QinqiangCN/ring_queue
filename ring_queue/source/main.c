@@ -94,13 +94,6 @@ void write_test(ring_queue_Type_Def* ring_queue_Struct, uint8_t* pData, uint32_t
     }
     else {
         printf("成功！数据长度%d(B), \n\r", data_size_byte);
-        //if (ring_queue_Struct->store_w >= ring_queue_Struct->store_temp) {             ///< 写 大于 读
-        //    data_size_byte = (uint32_t)ring_queue_Struct->store_w - (uint32_t)ring_queue_Struct->store_temp;
-        //}
-        //else if (ring_queue_Struct->store_w < ring_queue_Struct->store_temp) {  		///< 读 大于 写
-        //    data_size_byte = ring_queue_Struct->store_size - ((uint32_t)ring_queue_Struct->store_temp - (uint32_t)ring_queue_Struct->store_w);
-        //}
-        //printf("写入长度%d(B)\r\n", data_size_byte);
     }
 #if STATISTICAL_INFORMATION == 1
     printf("  #    剩余空间%d(B)\n\r", ring_queue_Struct->store_free_space);

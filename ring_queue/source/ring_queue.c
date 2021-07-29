@@ -76,36 +76,43 @@ static void add_point(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_or_Read
 static void reduce_point(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_or_Read_t point)
 {
     if (point == WRITE_POINT) {
+
+        /// 当前写指针与读指针重合
+        if (ring_queue_Struct->store_w == ring_queue_Struct->store_r) {
+            if (ring_queue_Struct->store_state == STORE_FULL) {
+                /// 移动前队列满，则前移后队列正常
+                ring_queue_Struct->store_state = STORE_NORMAL;
+            }
+            else if (ring_queue_Struct->store_state == STORE_EMPTY) {
+                /// 移动前队列空，则前移后队列依然空
+                /// 同时前移读指针，否则写入一字节后误判为STORE_FULL
+                if (ring_queue_Struct->store_r == 0) {
+                    ring_queue_Struct->store_r = ring_queue_Struct->store_r - 1;
+                }
+                else {
+                    ring_queue_Struct->store_r--;
+                }
+            }
+            else if (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN) {
+                /// 移动前队列旧数据被覆盖，则前移后队列数据依然已被覆盖
+            }
+        }
         if (ring_queue_Struct->store_w == 0) {
             ring_queue_Struct->store_w = ring_queue_Struct->store_size - 1;
         }
         else {
             ring_queue_Struct->store_w--;
         }
-        /// 写指针向前移动时读写指针重合
-        if (ring_queue_Struct->store_w == ring_queue_Struct->store_r) {
-            if (ring_queue_Struct->store_state == STORE_FULL) {
-                /// 移动前队列满，则前移后队列正常
-                ring_queue_Struct->store_state = STORE_NORMAL;                  
-            }
-            else if (ring_queue_Struct->store_state == STORE_NORMAL) {
-                /// 移动前队列正常，则前移后队列空
-                ring_queue_Struct->store_state = STORE_EMPTY;
-            }
-            else if (ring_queue_Struct->store_state == STORE_EMPTY) {
-                /// 移动前队列空，则前移后队列依然空
-            }
-            else if (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN) {
-                /// 移动前队列旧数据被覆盖，则前移后队列数据依然已被覆盖
-            }
-        }
     }
     else if (point == READ_POINT) {
         /// 不对读指针进行前移操作
     }
     else if (point == TEMP_POINT) {
-        if (++ring_queue_Struct->store_temp >= ring_queue_Struct->store_size) {
-            ring_queue_Struct->store_temp = 0;
+        if (ring_queue_Struct->store_temp == 0) {
+            ring_queue_Struct->store_temp = ring_queue_Struct->store_temp - 1;
+        }
+        else {
+            ring_queue_Struct->store_temp--;
         }
     }
 }
@@ -266,7 +273,7 @@ int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_mo
     /// 是否在队列旧数据被覆盖后立即开始寻找新的帧头，0：不启用，1：启用。
     ///（启用统计信息时需要启用该功能）
     ///（不启用该功能则单帧数据长度小于队列长度，而实际写入长度超过队列长度时依然返回写入成功）
-    if (((0) && (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN)) || (STATISTICAL_INFORMATION == 1)) {
+    if (((0) && (STATISTICAL_INFORMATION == 1)) || (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN)) {
         /// 读指针移动到写指针位置
         ring_queue_Struct->store_r = ring_queue_Struct->store_w;
         /***
@@ -283,6 +290,9 @@ int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_mo
                 /// 更新统计信息
                 ring_queue_statistical_information_updata(ring_queue_Struct);
 #endif
+                /// 解锁互斥量
+                OSIF_MUTEX_RELEASE();
+
                 return -1;
             }
         }
@@ -350,6 +360,10 @@ int ring_queue_read_frame(ring_queue_Type_Def* ring_queue_Struct, _OUT_ uint8_t*
             if (ring_queue_Struct->store_r == ring_queue_Struct->store_w) {
                 /// 再次重合-无帧头
                 ring_queue_Struct->store_state = STORE_EMPTY;
+
+                /// 解锁互斥量
+                OSIF_MUTEX_RELEASE();
+
                 return -1;
             }
         }
@@ -375,6 +389,10 @@ int ring_queue_read_frame(ring_queue_Type_Def* ring_queue_Struct, _OUT_ uint8_t*
         if (ring_queue_Struct->store_r == ring_queue_Struct->store_w) {
             /// 再次重合-无帧尾
             ring_queue_Struct->store_state = STORE_EMPTY;
+
+            /// 解锁互斥量
+            OSIF_MUTEX_RELEASE();
+
             return -1;
         }
     } while (((uint8_t*)(ring_queue_Struct->pBuf))[ring_queue_Struct->store_r] != SLIP_END);
