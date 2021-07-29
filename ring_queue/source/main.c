@@ -89,7 +89,7 @@ void write_test(ring_queue_Type_Def* ring_queue_Struct, uint8_t* pData, uint32_t
 
     printf("\r\n#--> buf%d数据写入...", tag);
     ring_queue_Struct->store_temp = ring_queue_Struct->store_w;
-    if (ring_queue_write_frame(&uart_rx_queue_handle, pData, data_size_byte) != 0) {
+    if (ring_queue_write_frame(&uart_rx_queue_handle, WRITE_FRAME_NEW, pData, data_size_byte) != 0) {
         printf("失败！\r\n");
     }
     else {
@@ -169,6 +169,24 @@ int main(void)
     read_test(&uart_rx_queue_handle);
 
     read_test(&uart_rx_queue_handle);
+
+    printf("\r\n#--> buf2数据写入...");
+    if (ring_queue_write_frame(&uart_rx_queue_handle, WRITE_FRAME_NEW, buf2, BUF2_NUM) != 0) {
+        printf("失败！\r\n");
+    }
+    else {
+        printf("成功！\r\n");
+    }
+
+    printf("\r\n#--> buf2数据追加写入...");
+    if (ring_queue_write_frame(&uart_rx_queue_handle, WRITE_FRAME_APPEND, buf2, BUF2_NUM) != 0) {
+        printf("失败！\r\n");
+    }
+    else {
+        printf("成功！\r\n");
+    }
+
+
 #if STATISTICAL_INFORMATION == 1
     printf("\n\r# 最大占用率%d%%", uart_rx_queue_handle.space_occupancy_max);
 #endif

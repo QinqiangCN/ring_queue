@@ -139,10 +139,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="source\mqtt_queue.h" />
     <ClInclude Include="source\ring_queue.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\main.c" />
+    <ClCompile Include="source\mqtt_queue.c" />
     <ClCompile Include="source\ring_queue.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

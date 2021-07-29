@@ -3,8 +3,8 @@
 * @brief       环形队列
 * @details     可插入不定长数据的环形队列
 * @author      Qinqiang
-* @date        2021-7-28
-* @version     V1.0
+* @date        2021-7-29
+* @version     V1.1
 * @copyright   Copyright (c) 2021
 **********************************************************************************
 * @attention
@@ -13,6 +13,7 @@
 * <table>
 * <tr><th>Date        <th>Version  <th>Author    <th>Description
 * <tr><td>2021/07/28  <td>1.0      <td>Qinqiang  <td>创建初始版本
+* <tr><td>2021/07/29  <td>1.1      <td>Qinqiang  <td>增加数据追加功能
 * </table>
 *
 **********************************************************************************
@@ -26,7 +27,7 @@
 static void ring_queue_statistical_information_updata(ring_queue_Type_Def* ring_queue_Struct);
 
 /**
-* @brief                            指针计算
+* @brief                            指针向后移动
 *
 * @param[in]  ring_queue_Struct     队列管理结构体指针
 * @param[in]  point                 操作指针枚举
@@ -41,7 +42,7 @@ static void add_point(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_or_Read
         if (++ring_queue_Struct->store_w >= ring_queue_Struct->store_size) {
             ring_queue_Struct->store_w = 0;
         }
-        /// 写入时读写指针重合，则缓存满
+        /// 写指针向后移动时读写指针重合，则队列满
         if (ring_queue_Struct->store_w == ring_queue_Struct->store_r) {
             ring_queue_Struct->store_state = STORE_FULL;
         }
@@ -50,10 +51,56 @@ static void add_point(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_or_Read
         if (++ring_queue_Struct->store_r >= ring_queue_Struct->store_size) {
             ring_queue_Struct->store_r = 0;
         }
-        /// 读取时读写指针重合，则缓存空
+        /// 读指针向后移动时读写指针重合，则队列空
         if (ring_queue_Struct->store_w == ring_queue_Struct->store_r) {
             ring_queue_Struct->store_state = STORE_EMPTY;
         }
+    }
+    else if (point == TEMP_POINT) {
+        if (++ring_queue_Struct->store_temp >= ring_queue_Struct->store_size) {
+            ring_queue_Struct->store_temp = 0;
+        }
+    }
+}
+/**
+* @brief                            指针向前移动
+*
+* @param[in]  ring_queue_Struct     队列管理结构体指针
+* @param[in]  point                 操作指针枚举
+*   WRITE_POINT                     写指针操作
+*   READ_POINT                      读指针操作
+*   TEMP_POINT                      临时指针操作
+*
+*/
+static void reduce_point(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_or_Read_t point)
+{
+    if (point == WRITE_POINT) {
+        if (ring_queue_Struct->store_w == 0) {
+            ring_queue_Struct->store_w = ring_queue_Struct->store_size - 1;
+        }
+        else {
+            ring_queue_Struct->store_w--;
+        }
+        /// 写指针向前移动时读写指针重合
+        if (ring_queue_Struct->store_w == ring_queue_Struct->store_r) {
+            if (ring_queue_Struct->store_state == STORE_FULL) {
+                /// 移动前队列满，则前移后队列正常
+                ring_queue_Struct->store_state = STORE_NORMAL;                  
+            }
+            else if (ring_queue_Struct->store_state == STORE_NORMAL) {
+                /// 移动前队列正常，则前移后队列空
+                ring_queue_Struct->store_state = STORE_EMPTY;
+            }
+            else if (ring_queue_Struct->store_state == STORE_EMPTY) {
+                /// 移动前队列空，则前移后队列依然空
+            }
+            else if (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN) {
+                /// 移动前队列旧数据被覆盖，则前移后队列数据依然已被覆盖
+            }
+        }
+    }
+    else if (point == READ_POINT) {
+        /// 不对读指针进行前移操作
     }
     else if (point == TEMP_POINT) {
         if (++ring_queue_Struct->store_temp >= ring_queue_Struct->store_size) {
@@ -148,6 +195,9 @@ static uint8_t ring_queue_read_byte(ring_queue_Type_Def* ring_queue_Struct)
 * @brief                            向队列写入一帧数据
 *
 * @param[in]  *ring_queue_Struct    帧管理结构体指针
+* @param[in]  mode                  数据写入方式
+*   WRITE_FRAME_NEW                 作为新帧写入
+*   WRITE_FRAME_APPEND              追加（与上一帧合并）
 * @param[in]  *pData                待写入数据指针
 * @param[in]  data_size_byte        待写入数据长度（byte）
 *
@@ -155,7 +205,7 @@ static uint8_t ring_queue_read_byte(ring_queue_Type_Def* ring_queue_Struct)
 *   0                               成功
 *   -1                              失败
 */
-int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, uint8_t* pData, uint32_t data_size_byte)
+int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_mode_t mode, uint8_t* pData, uint32_t data_size_byte)
 {
     uint8_t data = 0;
 
@@ -163,18 +213,27 @@ int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, uint8_t* pDat
     异常处理
     **/
     /// 空指针判断
-    if ( (ring_queue_Struct == NULL) || (pData == NULL) ) {
+    if ((ring_queue_Struct == NULL) || (pData == NULL)) {
         return -1;
     }
     /// 长度错误判断
-    if ( (data_size_byte > ring_queue_Struct->store_size + 2) || (data_size_byte > UINT32_MAX) || (data_size_byte <= 0) ) {
+    if ((data_size_byte > ring_queue_Struct->store_size + 2) || (data_size_byte > UINT32_MAX) || (data_size_byte <= 0)) {
         return -1;
     }
+
+    // #此处加锁##################################################################################################
+
     /***
     Slip Code
     **/
-    /// 帧头
-    ring_queue_write_byte(ring_queue_Struct, SLIP_START);
+    if (mode == WRITE_FRAME_NEW) {
+        /// 帧头
+        ring_queue_write_byte(ring_queue_Struct, SLIP_START);
+    }
+    else if (mode == WRITE_FRAME_APPEND) {
+        /// 写指针前移，准备丢弃帧尾
+        reduce_point(ring_queue_Struct, WRITE_POINT);
+    }
     /// 遍历每个字节
     for (uint32_t i = 0; i < data_size_byte; i++) {
         data = *((uint8_t*)pData + i);
@@ -203,7 +262,7 @@ int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, uint8_t* pDat
     /// 是否在队列旧数据被覆盖后立即开始寻找新的帧头，0：不启用，1：启用。
     ///（启用统计信息时需要启用该功能）
     ///（不启用该功能则单帧数据长度小于队列长度，而实际写入长度超过队列长度时依然返回写入成功）
-    if ( ( ( 0 ) && (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN)) || (STATISTICAL_INFORMATION == 1) ) {
+    if (((0) && (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN)) || (STATISTICAL_INFORMATION == 1)) {
         /// 读指针移动到写指针位置
         ring_queue_Struct->store_r = ring_queue_Struct->store_w;
         /***
@@ -230,6 +289,9 @@ int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, uint8_t* pDat
     /// 更新统计信息
     ring_queue_statistical_information_updata(ring_queue_Struct);
 #endif
+
+    // #此处解锁##################################################################################################
+
     return 0;
 }
 
@@ -266,6 +328,8 @@ int ring_queue_read_frame(ring_queue_Type_Def* ring_queue_Struct, _OUT_ uint8_t*
     if (ring_queue_Struct->store_state == STORE_EMPTY) {
         return -1;
     }
+
+    // #此处加锁##################################################################################################
 
     if (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN) {
         /// 读指针移动到写指针位置
@@ -322,6 +386,7 @@ int ring_queue_read_frame(ring_queue_Type_Def* ring_queue_Struct, _OUT_ uint8_t*
     /// 更新统计信息
     ring_queue_statistical_information_updata(ring_queue_Struct);
 #endif
+    // #此处解锁##################################################################################################
     return 0;
 }
 

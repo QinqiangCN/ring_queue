@@ -18,12 +18,18 @@
     <ClInclude Include="source\ring_queue.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="source\mqtt_queue.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\main.c">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="source\ring_queue.c">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="source\mqtt_queue.c">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
