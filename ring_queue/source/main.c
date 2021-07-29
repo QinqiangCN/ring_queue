@@ -48,22 +48,22 @@ void read_test(ring_queue_Type_Def* ring_queue_Struct)
         printf("  读取长度：%d\n\r", Read_len);
 
         if (memcmp(buf1, ReadBuf, BUF1_NUM) == 0) {
-            printf("  读取完成,数据于buf1相同！。\n\r");
+            printf("  读取完成,数据与buf1相同！。\n\r");
         }
         else if (memcmp(buf2, ReadBuf, BUF2_NUM) == 0) {
-            printf("  读取完成,数据于buf2相同！。\n\r");
+            printf("  读取完成,数据与buf2相同！。\n\r");
         }
         else if (memcmp(buf3, ReadBuf, BUF3_NUM) == 0) {
-            printf("  读取完成,数据于buf3相同！。\n\r");
+            printf("  读取完成,数据与buf3相同！。\n\r");
         }
         else if (memcmp(buf4, ReadBuf, BUF4_NUM) == 0) {
-            printf("  读取完成,数据于buf4相同！。\n\r");
+            printf("  读取完成,数据与buf4相同！。\n\r");
         }
         else if (memcmp(buf5, ReadBuf, BUF5_NUM) == 0) {
-            printf("  读取完成,数据于buf5相同！。\n\r");
+            printf("  读取完成,数据与buf5相同！。\n\r");
         }
         else if (memcmp(buf6, ReadBuf, BUF6_NUM) == 0) {
-            printf("  读取完成,数据于buf6相同！。\n\r");
+            printf("  读取完成,数据与buf6相同！。\n\r");
         }
         else {
             printf("  读取完成,未找到匹配的bufx！。\n\r");

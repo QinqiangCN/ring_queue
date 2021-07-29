@@ -4,7 +4,56 @@
 #define _OUT_
 #define _IN_
 
-#define STATISTICAL_INFORMATION  1                                       ///< 统计信息 1：启用，0：不启用
+#define STATISTICAL_INFORMATION     1                                    ///< 统计信息 1：启用，0：不启用
+
+/// RTOS Select
+#define OS_FREERTOS                 1
+#define OS_RT_THREAD                2
+#define OS_THREADX                  3
+
+#define OS_NONE                     4
+#define OS_NOT_USE                  5
+
+#define OS_USED                     OS_NONE
+
+#if     OS_USED == OS_FREERTOS
+/***
+FREERTOS Mutex
+**/
+#include "semphr.h"
+#define OSIF_MUTEX_VARIABLE         ring_queue_Struct->xMutex
+#define OSIF_MUTEX_DECLARE          SemaphoreHandle_t xMutex
+#define OSIF_MUTEX_CREATE()         OSIF_MUTEX_VARIABLE = xSemaphoreCreateMutex()
+#define OSIF_MUTEX_WAIT()           xSemaphoreTake( OSIF_MUTEX_VARIABLE, portMAX_DELAY )
+#define OSIF_MUTEX_RELEASE()        xSemaphoreGive( OSIF_MUTEX_VARIABLE )
+#elif   OS_USED == OS_RT_THREAD
+/***
+RT-Thread
+**/
+#define OSIF_MUTEX_VALUE()          
+#define OSIF_MUTEX_CREATE()         
+#define OSIF_MUTEX_WAIT()           
+#define OSIF_MUTEX_RELEASE()        
+#elif   OS_USED == OS_NONE
+/***
+NO os
+**/
+#define OSIF_MUTEX_VARIABLE         ring_queue_Struct->xMutex
+#define OSIF_MUTEX_DECLARE          uint8_t xMutex
+#define OSIF_MUTEX_CREATE()         OSIF_MUTEX_VARIABLE = 0
+#define OSIF_MUTEX_WAIT()           while(OSIF_MUTEX_VARIABLE); OSIF_MUTEX_VARIABLE = 1
+#define OSIF_MUTEX_RELEASE()        OSIF_MUTEX_VARIABLE = 0
+#elif   OS_USED == OS_NOT_USE
+/***
+Undefined Mutex
+**/
+#define OSIF_MUTEX_VALUE()         
+#define OSIF_MUTEX_CREATE()       
+#define OSIF_MUTEX_WAIT()         
+#define OSIF_MUTEX_RELEASE()
+#else
+#error
+#endif
 
 /// 队列状态枚举
 typedef enum {
@@ -57,7 +106,7 @@ typedef struct {
     uint32_t space_occupancy;                                            ///< 空间占用率
     uint32_t space_occupancy_max;                                        ///< 最大空间占用率
 
-    //rt_mutex_t muctexlock_storewr;                                     ///< 互斥锁
+    OSIF_MUTEX_DECLARE;                                                  ///< 互斥信号量
 }ring_queue_Type_Def;
 
 

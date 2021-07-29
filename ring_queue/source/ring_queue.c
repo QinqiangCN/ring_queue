@@ -143,6 +143,8 @@ int ring_queue_init(ring_queue_Type_Def* ring_queue_Struct, uint8_t* pBuffer, ui
     ring_queue_Struct->store_free_space = buffer_size_byte;
     ring_queue_Struct->space_occupancy = 0;
     ring_queue_Struct->space_occupancy_max = 0;
+    /// 创建互斥量
+    OSIF_MUTEX_CREATE();
 
     return 0;
 }
@@ -221,7 +223,8 @@ int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_mo
         return -1;
     }
 
-    // #此处加锁##################################################################################################
+    /// 等待互斥量
+    OSIF_MUTEX_WAIT();
 
     /***
     Slip Code
@@ -290,7 +293,8 @@ int ring_queue_write_frame(ring_queue_Type_Def* ring_queue_Struct, Enum_Write_mo
     ring_queue_statistical_information_updata(ring_queue_Struct);
 #endif
 
-    // #此处解锁##################################################################################################
+    /// 解锁互斥量
+    OSIF_MUTEX_RELEASE();
 
     return 0;
 }
@@ -329,7 +333,8 @@ int ring_queue_read_frame(ring_queue_Type_Def* ring_queue_Struct, _OUT_ uint8_t*
         return -1;
     }
 
-    // #此处加锁##################################################################################################
+    /// 等待互斥量
+    OSIF_MUTEX_WAIT();
 
     if (ring_queue_Struct->store_state == STORE_FULL_DATA_OVERWRITTEN) {
         /// 读指针移动到写指针位置
@@ -386,7 +391,10 @@ int ring_queue_read_frame(ring_queue_Type_Def* ring_queue_Struct, _OUT_ uint8_t*
     /// 更新统计信息
     ring_queue_statistical_information_updata(ring_queue_Struct);
 #endif
-    // #此处解锁##################################################################################################
+
+    /// 解锁互斥量
+    OSIF_MUTEX_RELEASE();
+
     return 0;
 }
 
